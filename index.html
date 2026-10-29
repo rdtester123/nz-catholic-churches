@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en-NZ"><head><meta charset="utf-8"><title>Catholic Churches Near Me – Aotearoa New Zealand</title>
+<html lang="en-NZ"><head><meta charset="utf-8"><title>Catholic Parishes Near Me – Aotearoa New Zealand</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
 :root{--bg:#faf7f2;--card:#fff;--tx:#2a2320;--mu:#6e625a;--ac:#7a1f2b;--ac2:#f3e6e7;--bd:#e6ded3;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -17,17 +17,17 @@ button.p{background:var(--ac);color:var(--bg);border-color:var(--ac);font-weight
 .days button{padding:6px 11px;font-size:.85rem;cursor:pointer}.days button.on{background:var(--ac2);border-color:var(--ac);color:var(--ac);font-weight:600}
 .msg{color:var(--mu);font-size:.88rem;margin-top:8px}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px 16px;margin-bottom:12px;font-family:system-ui,sans-serif}
-.card h2{font-family:Georgia,serif;font-size:1.15rem;margin:0 0 2px}.dist{float:right;color:var(--ac);font-weight:700;margin-left:10px}
+.ch{border-top:1px solid var(--bd);margin-top:12px;padding-top:10px}.ch h3{font-family:Georgia,serif;font-size:1rem;margin:0}.card h2{font-family:Georgia,serif;font-size:1.15rem;margin:0 0 2px}.dist{float:right;color:var(--ac);font-weight:700;margin-left:10px}
 .meta{color:var(--mu);font-size:.88rem}.sv{margin:10px 0 0;padding:0;list-style:none;font-size:.92rem}
 .sv li{padding:4px 0;border-top:1px dashed var(--bd)}.sv b{color:var(--ac)}
 .card a{color:var(--ac);font-weight:600;font-size:.9rem;text-decoration:none}
 footer{color:var(--mu);font-size:.8rem;font-family:system-ui,sans-serif;margin-top:20px}
 </style></head><body><main>
-<h1>✝ Catholic Churches Near Me</h1>
-<p class="sub">Parishes and Mass times across all six New Zealand dioceses.</p>
+<h1>✝ Catholic Parishes Near Me</h1>
+<p class="sub">Find the nearest parish, and which of its churches has a service when you need it.</p>
 <div class="panel">
 <div class="row"><button class="p" id="geo">📍 Use my location</button><select id="place" aria-label="Choose a town or suburb"><option value="">…or choose a town or suburb</option></select></div>
-<div class="days" id="days"></div><div class="msg" id="msg">Choose where you are to see the nearest churches.</div></div>
+<div class="days" id="days"></div><div class="msg" id="msg">Choose where you are to see the nearest parishes.</div></div>
 <div id="out"></div>
 <footer>Distances are straight-line estimates. Distances marked ~ use the town centre because no exact coordinates were supplied. Mass times can change, so please confirm with the parish, especially around feast days.</footer>
 </main>
@@ -37,19 +37,26 @@ const $=id=>document.getElementById(id),fix=s=>s.replace(/'/g,'’');
 let pos=null,day=-1,shown=10;
 const sel=$('place');Object.keys(LOC).sort().forEach(k=>sel.add(new Option(k,k)));
 const dd=$('days');['Any day',...DN].forEach((n,i)=>{const b=document.createElement('button');b.textContent=n;b.onclick=()=>{day=i-1;shown=10;render()};dd.appendChild(b)});
-$('geo').onclick=()=>{$('msg').textContent='Finding you…';navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{pos=[p.coords.latitude,p.coords.longitude];sel.value='';shown=10;$('msg').textContent='Showing churches nearest to your location.';render()},()=>$('msg').textContent='Location is blocked here. Please choose a town or suburb instead.'):$('msg').textContent='Location is not available. Please choose a town or suburb.'};
-sel.onchange=()=>{if(sel.value){pos=LOC[sel.value];shown=10;$('msg').textContent='Showing churches nearest to '+sel.value+'.';render()}};
+$('geo').onclick=()=>{const m=$('msg');if(!navigator.geolocation){m.textContent='This browser can’t share its location. Please choose a town or suburb instead.';return}
+m.textContent='Finding you…';
+navigator.geolocation.getCurrentPosition(p=>{pos=[p.coords.latitude,p.coords.longitude];sel.value='';shown=10;m.textContent='Showing parishes nearest to your location.';render()},e=>{
+m.textContent=e.code==1?'Location was blocked. If you opened this inside another app or preview, open the page directly in Safari or Chrome. Otherwise allow location for this site in your browser settings, then try again. You can also choose a town or suburb above.':e.code==3?'Finding your location took too long. Please try again or choose a town or suburb above.':'Your location isn’t available right now. Please choose a town or suburb above.'},{enableHighAccuracy:false,timeout:15000,maximumAge:300000})};
+sel.onchange=()=>{if(sel.value){pos=LOC[sel.value];shown=10;$('msg').textContent='Showing parishes nearest to '+sel.value+'.';render()}};
 const km=(a,b)=>{const r=Math.PI/180,x=(b[0]-a[0])*r,y=(b[1]-a[1])*r,h=Math.sin(x/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(y/2)**2;return 12742*Math.asin(Math.sqrt(h))};
 const abbr=m=>{const d=[...m].map((c,i)=>c=='1'?DN[i]:'').filter(Boolean);return d.length==7?'Daily':d.length==5&&m.slice(0,5)=='11111'?'Mon–Fri':d.join(', ')};
+const mins=t=>{const m=/(\d+):(\d+)\s*(AM|PM)/i.exec(t);if(!m)return 0;let h=+m[1]%12;if(m[3].toUpperCase()=='PM')h+=12;return h*60+ +m[2]};
+const dist=d=>(d<10?d.toFixed(1):Math.round(d))+' km';
+const P={};D.forEach(c=>{const k=c.r+'|'+c.p;(P[k]=P[k]||{p:c.p,r:c.r,cs:[]}).cs.push(c)});
 function render(){[...dd.children].forEach((b,i)=>b.classList.toggle('on',i==day+1));
 if(!pos){$('out').innerHTML='';return}
-let list=D.map(c=>({c,d:km(pos,[c.la,c.lo]),s:day<0?c.s:c.s.filter(x=>x.length&&x[0][day]=='1')}));
-if(day>=0)list=list.filter(x=>x.s.length);
+const list=[];
+Object.values(P).forEach(p=>{const cs=p.cs.map(c=>({c,d:km(pos,[c.la,c.lo]),s:c.s.filter(x=>(day<0||x[0][day]=='1')).sort((a,b)=>mins(a[1])-mins(b[1]))})).filter(x=>x.s.length).sort((a,b)=>a.d-b.d);
+if(cs.length)list.push({p,cs,d:Math.min(...cs.map(x=>x.d))})});
 list.sort((a,b)=>a.d-b.d);
-const h=list.slice(0,shown).map(({c,d,s})=>{
-const ls=s.slice().sort((a,b)=>new Date('1/1/2000 '+a[1])-new Date('1/1/2000 '+b[1])).map(x=>`<li><b>${x[1]}</b> · ${fix(x[2])} <span class="meta">(${abbr(x[0])})</span></li>`).join('');
-return `<div class="card"><span class="dist">${c.ap?'~':''}${d<10?d.toFixed(1):Math.round(d)} km</span><h2>${fix(c.n)}</h2><div class="meta">${fix(c.p)} · ${c.r} diocese<br>${fix(c.a)}</div><ul class="sv">${ls}</ul><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.n+' '+c.a+' New Zealand')}">Get directions →</a></div>`}).join('');
-$('out').innerHTML=h||'<div class="panel">No services found for that day.</div>';
-if(list.length>shown){const b=document.createElement('button');b.className='p';b.textContent='Show more';b.onclick=()=>{shown+=10;render()};$('out').appendChild(b)}}
+const h=list.slice(0,shown).map(({p,cs,d})=>{
+const chs=cs.map(({c,d,s})=>`<div class="ch"><span class="dist" style="font-size:.85rem">${c.ap?'~':''}${dist(d)}</span><h3>${fix(c.n)}</h3><div class="meta">${fix(c.a)}</div><ul class="sv">${s.map(x=>`<li><b>${x[1]}</b> · ${fix(x[2])} <span class="meta">(${abbr(x[0])})</span></li>`).join('')}</ul><a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.n+' '+c.a+' New Zealand')}">Get directions →</a></div>`).join('');
+return `<div class="card"><span class="dist">${dist(d)}</span><h2>${fix(p.p)}</h2><div class="meta">${p.r} diocese · ${cs.length} ${cs.length==1?'church':'churches'} ${day>=0?'with a service that day':'in this parish'}</div>${chs}</div>`}).join('');
+$('out').innerHTML=h||'<div class="panel">No parishes have a service on that day. Try another day.</div>';
+if(list.length>shown){const b=document.createElement('button');b.className='p';b.textContent='Show more parishes';b.onclick=()=>{shown+=10;render()};$('out').appendChild(b)}}
 render();
 </script></body></html>
